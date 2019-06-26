@@ -1,0 +1,253 @@
+library IEEE; 
+use IEEE.STD_LOGIC_1164.ALL; 
+use IEEE.STD_LOGIC_ARITH.ALL; 
+use IEEE.STD_LOGIC_UNSIGNED.ALL; 
+
+entity lcd_exm is 
+port(clk,reset,start : in std_logic;
+-- data_in : in std_logic_vector(7 downto 0);
+stop: out std_logic;
+ready : out std_logic;
+LCD_RS : out std_logic;
+LCD_RW : out std_logic;
+LCD_E : out std_logic;
+SF_D : out std_logic_vector(3 downto 0)
+);
+end entity LCD_Display;
+
+architecture behavior of LCD_Display is
+type state_type is (state0,state1,state2,state3,state4,state5,state6, state7,state8,state9,stop_state);
+signal state_reg, state_next : state_type;
+signal count, count_reg: integer;
+signal decision,decision_reg : integer;
+signal finish : std_logic;
+signal initial : std_logic;
+--signal stop : std_logic;
+signal data : std_logic_vector(9 downto 0);
+
+begin
+process(clk,reset) is
+begin
+if reset = '1' then
+state_reg <= state0;
+count_reg <= 0;
+decision_reg <= 0;
+elsif clk' event and clk = '1' then
+state_reg <= state_next;
+count_reg <= count;
+decision_reg <= decision;
+end if;
+end process;
+
+process(start,count_reg,state_reg)
+variable wait1,wait2,wait3,wait4,wait5 : integer;
+begin
+---
+--state_next <= state_reg;
+count <= count_reg;
+ready <= '0';
+decision <= decision_reg;
+case state_reg is 
+when stop_state =>
+stop <= '1';
+
+when state0 =>
+initial <= '1';
+count <= 0;
+wait1 := 750000; ---- in power initalization , 1st 750k , 205k,5k,2k time clock 50 Mhz
+wait2 := 205000;
+wait3 := 5000;
+wait4 := 2000;
+if start = '1' then 
+finish <= '0';
+state_next <= state1; 
+--	wait5 := 840000; ----- time for clear display
+decision <= 0 ; ---- signal indicate where to go 
+else 
+state_next <= state0; ---- not start yet
+end if ;
+---%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %%%%%%%%%%%%-----------------------------------
+---%%%%%%%%%%% State 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%-----------------------------------------------	
+when state1 => --- this state to determine to finish initilization and start write expected data
+count <= count_reg + 1;
+if decision = 0 then ---- wait 750k first
+if count > wait1 then ---- start to count until read 750k
+count <= 0; --- reassign count = 0
+data <= "1000000011"; --- data signal for assign LCD_RS, RW and SW_F
+decision <= 1; --- after finish, move to the 2nd wait 205k
+state_next <= state2; --- move to state2 for assign SW_F as initialzaiotn required
+else
+state_next <= state1;
+end if;
+
+elsif decision = 1 then
+if count > wait2 then ---- start to count until reach 205k
+count <= 0; --- reassign count = 0
+data <= "1000000011"; --- data signal for assign LCD_RS, RW and SW_F = 0X3
+decision <= 2; --- after finish the write SW_F, move to the 3rd wait 5k
+state_next <= state2; --- move to state2 for assign SW_F as initialzaiotn required
+else
+state_next <= state1;
+end if;
+
+elsif decision = 2 then
+if count > wait3 then ---- start to count until reach 5k
+count <= 0; --- reassign count = 0
+data <= "1000000011"; --- data signal for assign LCD_RS, RW and SW_F = 0X3
+decision <= 3; --- after finish the write SW_F, move to the 3rd wait 5k
+state_next <= state2; --- move to state2 for assign SW_F as initialzaiotn required
+else
+state_next <= state1;
+end if;
+
+elsif decision = 3 then 
+if count > wait4 then ---- start to count until reach 2k
+count <= 0; --- reassign count = 0
+data <= "1000000010"; --- data signal for assign LCD_RS, RW and SW_F = 0X2
+decision <= 4; --- after finish the write SW_F, move to the 3rd wait 5k
+state_next <= state2; --- move to state2 for assign SW_F as initialzaiotn required
+else
+state_next <= state1;
+end if;
+
+elsif decision = 4 then --- issue Function set 
+if count > wait4 then
+count <= 0;
+data <= "0000101000";
+decision <= 5;
+state_next <= state2;
+else
+state_next <= state1;
+end if;
+
+elsif	decision = 5 then -- entry mode set
+if count > wait4 then
+count <= 0;
+data <= "0000000110";
+decision <= 6;
+state_next <= state2;
+else 
+state_next <= state1;
+end if;
+
+elsif decision = 6 then --- display on off
+if count > wait4 then
+count <= 0;
+data <= "0000001100";
+decision <= 7;
+state_next <= state2;
+else
+state_next <= state1;
+end if;
+
+else--if decision = 7 then --clear display
+if count > wait4 then
+count <= 0;
+data <= "0000000001";
+decision <= 8;
+finish <= '1';
+state_next <= state2;
+else
+state_next <= state1;
+end if;
+-- else --- decision = 8
+-- state_next <= stop_state;
+end if;
+--	else
+--	if count > wait4 then
+--	count <= 0 ;
+--	data <= "10" & "01000001" ;
+--	ready <= '0';
+--	state_next <= state2;
+--	else
+--	state_next <= state1; 
+--	end if;
+--	
+--	end if ; --- end state1
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %%%%%----
+--%%%%%%%% State 2: assign value for LED_RS, RW and SW_F%---------
+when state2 =>
+LCD_RS <= data(9);
+LCD_RW <= data(8);
+SF_D <= data(7 downto 4);
+state_next <= state3;
+initial <= '0';
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %%%%%----
+--%%%%%%%% State 3-> 8: write SW_F for display%---------
+when state3 =>
+count <= count_reg + 1 ;
+if count > 2 then
+count <= 0;
+LCD_E <= '1';
+state_next <= state4;
+else
+LCD_E <='0';
+state_next <= state3;
+end if;
+
+when state4 =>
+count <= count_reg + 1;
+if count > 12 then 
+count <= 0;
+LCD_E <= '0';
+state_next <= state5;
+else
+state_next <= state4;
+LCD_E <= '1';
+end if;
+
+when state5 =>
+count <= count_reg + 1;
+if count > 48 then
+count <= 0;
+SF_D <= data(3 downto 0);
+LCD_RS <= data(9);
+LCD_RW <= data(8);
+state_next <= state6;
+else
+state_next <= state5;
+end if;
+
+when state6 =>
+count <= count_reg + 1;
+if count > 2 then
+count <= 0;
+LCD_E <= '1';
+state_next <= state7;
+else
+state_next <= state6;
+LCD_E <= '0';
+end if;
+
+when state7 =>
+count <= count_reg + 1;
+if count > 12 then
+count <= 0 ;
+LCD_E <= '0';
+state_next <= state8;
+else
+state_next <= state7;
+LCD_E <= '1';
+end if ;
+
+when state8 =>
+
+--if finish = '1' then
+if decision = 8 then
+state_next <= state9;
+else
+state_next <= state1;
+end if;
+
+when state9 =>
+count<= count_reg +1;
+if count > 82000 then
+count <= 0;
+state_next <= stop_state;
+else
+state_next <= state9;
+end if; 
+end case;
+end process;
+end architecture behavior;

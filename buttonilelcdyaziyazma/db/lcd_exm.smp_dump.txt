@@ -1,0 +1,14 @@
+
+State Machine - |lcd_exm|state_reg
+Name state_reg.stop_state state_reg.state9 state_reg.state8 state_reg.state7 state_reg.state6 state_reg.state5 state_reg.state4 state_reg.state3 state_reg.state2 state_reg.state1 state_reg.state0 
+state_reg.state0 0 0 0 0 0 0 0 0 0 0 0 
+state_reg.state1 0 0 0 0 0 0 0 0 0 1 1 
+state_reg.state2 0 0 0 0 0 0 0 0 1 0 1 
+state_reg.state3 0 0 0 0 0 0 0 1 0 0 1 
+state_reg.state4 0 0 0 0 0 0 1 0 0 0 1 
+state_reg.state5 0 0 0 0 0 1 0 0 0 0 1 
+state_reg.state6 0 0 0 0 1 0 0 0 0 0 1 
+state_reg.state7 0 0 0 1 0 0 0 0 0 0 1 
+state_reg.state8 0 0 1 0 0 0 0 0 0 0 1 
+state_reg.state9 0 1 0 0 0 0 0 0 0 0 1 
+state_reg.stop_state 1 0 0 0 0 0 0 0 0 0 1 
